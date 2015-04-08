@@ -15,6 +15,7 @@
  */
 package io.confluent.kafka.serializers;
 
+import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.serialization.Serializer;
 
@@ -26,6 +27,7 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 public class KafkaAvroSerializer extends AbstractKafkaAvroSerializer implements Serializer<Object> {
 
   private boolean isKey;
+  private boolean includeSchemaNameInSubject;
 
   /**
    * Constructor used by Kafka producer.
@@ -35,6 +37,11 @@ public class KafkaAvroSerializer extends AbstractKafkaAvroSerializer implements 
   }
 
   public KafkaAvroSerializer(SchemaRegistryClient client) {
+    schemaRegistry = client;
+  }
+
+  public KafkaAvroSerializer(SchemaRegistryClient client, boolean includeSchemaNameInSubject) {
+    this.includeSchemaNameInSubject = includeSchemaNameInSubject;
     schemaRegistry = client;
   }
 
@@ -53,16 +60,22 @@ public class KafkaAvroSerializer extends AbstractKafkaAvroSerializer implements 
       schemaRegistry = new CachedSchemaRegistryClient(
           (String) url, (Integer) maxSchemaObject);
     }
-
+    includeSchemaNameInSubject = (Boolean) configs.get(INCLUDE_SCHEMA_NAME_IN_SUBJECT);
   }
 
   @Override
   public byte[] serialize(String topic, Object record) {
     String subject;
+    String recordName = "";
+
+    if (includeSchemaNameInSubject && record instanceof IndexedRecord) {
+      recordName = "-" + ((IndexedRecord) record).getSchema().getName();
+    }
+
     if (isKey) {
-      subject = topic + "-key";
+      subject = topic + recordName + "-key";
     } else {
-      subject = topic + "-value";
+      subject = topic + recordName + "-value";
     }
     return serializeImpl(subject, record);
   }

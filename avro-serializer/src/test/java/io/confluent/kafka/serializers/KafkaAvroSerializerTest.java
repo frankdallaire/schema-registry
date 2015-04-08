@@ -15,6 +15,8 @@
  */
 package io.confluent.kafka.serializers;
 
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -25,14 +27,15 @@ import org.junit.Test;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.LocalSchemaRegistryClient;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import java.io.IOException;
+
+import static org.junit.Assert.*;
 
 public class KafkaAvroSerializerTest {
 
   private final SchemaRegistryClient schemaRegistry;
   private final KafkaAvroSerializer avroSerializer;
+  private final KafkaAvroSerializer avroSerializerWithSchemaNameIncluded;
   private final KafkaAvroEncoder avroEncoder;
   private final KafkaAvroDecoder avroDecoder;
   private final String topic;
@@ -40,6 +43,7 @@ public class KafkaAvroSerializerTest {
   public KafkaAvroSerializerTest() {
     schemaRegistry = new LocalSchemaRegistryClient();
     avroSerializer = new KafkaAvroSerializer(schemaRegistry);
+    avroSerializerWithSchemaNameIncluded = new KafkaAvroSerializer(schemaRegistry, true);
     avroEncoder = new KafkaAvroEncoder(schemaRegistry);
     avroDecoder = new KafkaAvroDecoder(schemaRegistry);
     topic = "test";
@@ -154,6 +158,23 @@ public class KafkaAvroSerializerTest {
       fail("Sending data of unsupported type should fail encoder");
     } catch (SerializationException e) {
       // this is expected
+    }
+  }
+
+  @Test
+  public void testSchemaNameInSubjectWhenSerializing() {
+    IndexedRecord avroRecord = createAvroRecord();
+    byte[] bytes = avroSerializerWithSchemaNameIncluded.serialize("test", avroRecord);
+    Object obj = avroDecoder.fromBytes(bytes);
+    assertEquals(avroRecord, obj);
+
+    try {
+      SchemaMetadata latestSchemaMetadata = schemaRegistry.getLatestSchemaMetadata("test-User-value");
+      assertNotNull(latestSchemaMetadata);
+    } catch (IOException e) {
+      fail("Unable to find the schema named test-User-value");
+    } catch (RestClientException e) {
+      fail("Unable to find the schema named test-User-value");
     }
   }
 }

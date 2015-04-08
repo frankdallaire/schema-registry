@@ -37,6 +37,7 @@ public abstract class AbstractKafkaAvroSerDe {
   protected final int DEFAULT_MAX_SCHEMAS_PER_SUBJECT = 1000;
   private static final Map<String, Schema> primitiveSchemas;
   protected SchemaRegistryClient schemaRegistry;
+  protected static final String INCLUDE_SCHEMA_NAME_IN_SUBJECT = "include.schema.name.in.subject";
 
   static {
     Schema.Parser parser = new Schema.Parser();
